@@ -10,6 +10,7 @@ from batchgenerators.utilities.file_and_folder_operations import load_json, isfi
 from nnunetv2.configuration import default_num_processes
 from nnunetv2.utilities.label_handling.label_handling import LabelManager
 from nnunetv2.utilities.plans_handling.plans_handler import PlansManager, ConfigurationManager
+from nnunetv2.training.nnUNetTrainer.state import ExperimentState
 
 
 def convert_predicted_logits_to_segmentation_with_correct_shape(predicted_logits: Union[torch.Tensor, np.ndarray],
@@ -20,7 +21,12 @@ def convert_predicted_logits_to_segmentation_with_correct_shape(predicted_logits
                                                                 return_probabilities: bool = False,
                                                                 num_threads_torch: int = default_num_processes):
     old_threads = torch.get_num_threads()
-    torch.set_num_threads(num_threads_torch)
+    
+    if ExperimentState.mem_optimized: 
+        print("memopt on. Setting num threads to 1")
+        torch.set_num_threads(1)
+    else:
+        torch.set_num_threads(num_threads_torch)
 
     # resample to original shape
     spacing_transposed = [properties_dict['spacing'][i] for i in plans_manager.transpose_forward]
