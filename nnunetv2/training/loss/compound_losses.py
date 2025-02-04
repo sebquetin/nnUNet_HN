@@ -1,8 +1,70 @@
 import torch
 from nnunetv2.training.loss.dice import SoftDiceLoss, MemoryEfficientSoftDiceLoss
 from nnunetv2.training.loss.robust_ce_loss import RobustCrossEntropyLoss, TopKLoss
+from monai.losses.hausdorff_loss import HausdorffDTLoss
 from nnunetv2.utilities.helpers import softmax_helper_dim1
 from torch import nn
+
+
+class DC_and_CE_Hauss_loss(nn.Module):
+    def __init__(self, soft_dice_kwargs, ce_kwargs, weight_ce=1, weight_dice=1, ignore_label=None,
+                 dice_class=SoftDiceLoss, hauss_weight=0.1, patch_size=None):
+        """
+        Weights for CE and Dice do not need to sum to one. You can set whatever you want.
+        :param soft_dice_kwargs:
+        :param ce_kwargs:
+        :param aggregate:
+        :param square_dice:
+        :param weight_ce:
+        :param weight_dice:
+        """
+        super(DC_and_CE_Hauss_loss, self).__init__()
+        if ignore_label is not None:
+            ce_kwargs['ignore_index'] = ignore_label
+
+        self.patch_size = patch_size
+        self.weight_dice = weight_dice
+        self.weight_ce = weight_ce
+        self.ignore_label = ignore_label
+
+        self.ce = RobustCrossEntropyLoss(**ce_kwargs)
+        self.dc = dice_class(apply_nonlin=softmax_helper_dim1, **soft_dice_kwargs)
+        self.hauss = HausdorffDTLoss(other_act=softmax_helper_dim1, to_onehot_y=True)
+        print(f"Using Monai Haus with a weight of {hauss_weight} on the loss. It applies softmax.")
+        self.hauss_weight = hauss_weight
+
+    def forward(self, net_output: torch.Tensor, target: torch.Tensor):
+        """
+        target must be b, c, x, y(, z) with c=1
+        :param net_output:
+        :param target:
+        :return:
+        """
+        #             b  c   h   w   d                b  1  h   w   d
+        # torch.Size([2, 23, 80, 160, 128]) torch.Size([2, 1, 80, 160, 128])
+        if self.ignore_label is not None:
+            assert target.shape[1] == 1, 'ignore label is not implemented for one hot encoded target variables ' \
+                                         '(DC_and_CE_loss)'
+            mask = target != self.ignore_label
+            # remove ignore label from target, replace with one of the known labels. It doesn't matter because we
+            # ignore gradients in those areas anyway
+            target_dice = torch.where(mask, target, 0)
+            num_fg = mask.sum()
+        else:
+            target_dice = target
+            mask = None
+
+        dc_loss = self.dc(net_output, target_dice, loss_mask=mask) \
+            if self.weight_dice != 0 else 0
+        ce_loss = self.ce(net_output, target[:, 0]) \
+            if self.weight_ce != 0 and (self.ignore_label is None or num_fg > 0) else 0
+        # print(net_output.argmax(1).shape, target.shape)
+       
+        result = self.weight_ce * ce_loss + self.weight_dice * dc_loss
+        if self.patch_size is None or target.shape[-1] == self.patch_size[-1]:
+            hauss_loss = self.hauss(net_output, target)
+            result += self.hauss_weight * hauss_loss
+        return result
 
 
 class DC_and_CE_loss(nn.Module):
