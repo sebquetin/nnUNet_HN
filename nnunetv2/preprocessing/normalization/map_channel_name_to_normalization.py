@@ -1,14 +1,17 @@
 from typing import Type
 
 from nnunetv2.preprocessing.normalization.default_normalization_schemes import CTNormalization, NoNormalization, \
-    ZScoreNormalization, RescaleTo01Normalization, RGBTo01Normalization, ImageNormalization
+    ZScoreNormalization, RescaleTo01Normalization, RGBTo01Normalization, ImageNormalization, CTBoneNormalization, CTSoftNormalization, MriSoftNormalization
 
 channel_name_to_normalization_mapping = {
     'ct': CTNormalization,
     'nonorm': NoNormalization,
     'zscore': ZScoreNormalization,
     'rescale_to_0_1': RescaleTo01Normalization,
-    'rgb_to_0_1': RGBTo01Normalization
+    'rgb_to_0_1': RGBTo01Normalization,
+    'CT_bone': CTBoneNormalization,
+    'CT_soft': CTSoftNormalization,
+    'MRI_soft': MriSoftNormalization,
 }
 
 
