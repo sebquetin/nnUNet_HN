@@ -264,7 +264,7 @@ class nnUNetTrainer(object):
             return False
 
         if 'nnUNet_compile' not in os.environ.keys():
-            return True
+            return False
         else:
             return os.environ['nnUNet_compile'].lower() in ('true', '1', 't')
 
