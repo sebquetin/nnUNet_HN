@@ -9,9 +9,9 @@ channel_name_to_normalization_mapping = {
     'zscore': ZScoreNormalization,
     'rescale_to_0_1': RescaleTo01Normalization,
     'rgb_to_0_1': RGBTo01Normalization,
-    'CT_bone': CTBoneNormalization,
-    'CT_soft': CTSoftNormalization,
-    'MRI_soft': MriSoftNormalization,
+    'ct_bone': CTBoneNormalization,
+    'ct_soft': CTSoftNormalization,
+    'mri_soft': MriSoftNormalization,
 }
 
 
