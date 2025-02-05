@@ -30,7 +30,7 @@ class ExperimentState:
     @classmethod
     @property
     def mem_optimized(cls):
-        return os.environ.get("mem_optimized", True) not in [0, "0", "f", "F", "false", "False"]
+        return os.environ.get("mem_optimized", False) not in [0, "0", "f", "F", "false", "False"]
 
     @classmethod
     @property
