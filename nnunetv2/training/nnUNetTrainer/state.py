@@ -30,7 +30,11 @@ class ExperimentState:
     @classmethod
     @property
     def mem_optimized(cls):
+<<<<<<< HEAD
         return os.environ.get("mem_optimized", False) not in [0, "0", "f", "F", "false", "False"]
+=======
+        return os.environ.get("mem_optimized", True) not in [0, "0", "f", "F", "false", "False"]
+>>>>>>> 3eb5592 (environment variable manager for options of the training)
 
     @classmethod
     @property
@@ -48,3 +52,7 @@ if __name__ == "__main__":
     print(ExperimentState.epochs)
     print(ExperimentState.mem_optimized)
     print(ExperimentState.__dict__)
+<<<<<<< HEAD
+=======
+
+>>>>>>> 3eb5592 (environment variable manager for options of the training)
