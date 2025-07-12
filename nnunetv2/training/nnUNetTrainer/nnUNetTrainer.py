@@ -230,8 +230,6 @@ class nnUNetTrainer(object):
                 self.network = torch.compile(self.network)
             else:
                 self.print_to_log_file('NOT COMPILING network...')
-            else:
-                self.print_to_log_file('NOT COMPILING network...')
 
             self.optimizer, self.lr_scheduler = self.configure_optimizers()
             # if ddp, wrap in DDP wrapper
