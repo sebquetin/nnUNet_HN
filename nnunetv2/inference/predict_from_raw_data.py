@@ -2,12 +2,15 @@ import inspect
 import itertools
 import multiprocessing
 import os
+import time
+
 from copy import deepcopy
 from queue import Queue
 from threading import Thread
 from time import sleep
 from typing import Tuple, Union, List, Optional
-
+import gc
+import warnings
 import numpy as np
 import torch
 from acvl_utils.cropping_and_padding.padding import pad_nd_image
@@ -34,6 +37,8 @@ from nnunetv2.utilities.json_export import recursive_fix_for_json_export
 from nnunetv2.utilities.label_handling.label_handling import determine_num_input_channels
 from nnunetv2.utilities.plans_handling.plans_handler import PlansManager, ConfigurationManager
 from nnunetv2.utilities.utils import create_lists_from_splitted_dataset_folder
+
+from nnunetv2.training.nnUNetTrainer.state import ExperimentState
 
 
 class nnUNetPredictor(object):
@@ -423,7 +428,8 @@ class nnUNetPredictor(object):
     def predict_single_npy_array(self, input_image: np.ndarray, image_properties: dict,
                                  segmentation_previous_stage: np.ndarray = None,
                                  output_file_truncated: str = None,
-                                 save_or_return_probabilities: bool = False):
+                                 save_or_return_probabilities: bool = False,
+                                 return_times: bool = False):
         """
         WARNING: SLOW. ONLY USE THIS IF YOU CANNOT GIVE NNUNET MULTIPLE IMAGES AT ONCE FOR SOME REASON.
 
@@ -444,10 +450,31 @@ class nnUNetPredictor(object):
         if self.verbose:
             print('preprocessing')
         dct = next(ppa)
-
+        # np.savez("/home/sebquet/scratch/VisionResearchLab/HaN_Challenge/output/classes_not_combined_only36/inputs_to_model.npz", 
+        # **dct)
         if self.verbose:
             print('predicting')
         predicted_logits = self.predict_logits_from_preprocessed_data(dct['data']).cpu()
+        # torch.save(
+        #         predicted_logits,
+        #         "/home/sebquet/scratch/VisionResearchLab/HaN_Challenge/output/classes_not_combined_only36/predicted_logits.pt"
+        #         )
+
+        # time for inference
+        t1_inference = time.time()
+
+        if ExperimentState.mem_optimized:
+            del dct['data'], ppa, input_image
+            torch.cuda.empty_cache()
+            gc.collect()
+
+            # for obj in gc.get_objects():
+            #     try:
+            #         if torch.is_tensor(obj) or (hasattr(obj, 'data') and torch.is_tensor(obj.data)):
+            #             print(type(obj), obj.size())
+            #     except:
+            #         pass
+            # print(torch.cuda.memory_summary())
 
         if self.verbose:
             print('resampling to original shape')
@@ -462,10 +489,20 @@ class nnUNetPredictor(object):
                                                                               dct['data_properties'],
                                                                               return_probabilities=
                                                                               save_or_return_probabilities)
-            if save_or_return_probabilities:
-                return ret[0], ret[1]
+            
+            # time for resampling
+            t1_resampling = time.time()
+
+            if return_times:
+                if save_or_return_probabilities:
+                    return ret[0], ret[1], t1_inference, t1_resampling
+                else:
+                    return ret, t1_inference, t1_resampling
             else:
-                return ret
+                if save_or_return_probabilities:
+                    return ret[0], ret[1]
+                else:
+                    return ret
 
     @torch.inference_mode()
     def predict_logits_from_preprocessed_data(self, data: torch.Tensor) -> torch.Tensor:
@@ -476,8 +513,12 @@ class nnUNetPredictor(object):
         RETURNED LOGITS HAVE THE SHAPE OF THE INPUT. THEY MUST BE CONVERTED BACK TO THE ORIGINAL IMAGE SIZE.
         SEE convert_predicted_logits_to_segmentation_with_correct_shape
         """
-        n_threads = torch.get_num_threads()
-        torch.set_num_threads(default_num_processes if default_num_processes < n_threads else n_threads)
+        if ExperimentState.mem_optimized:
+            print("mem opt on. Setting torch num threads to 1")
+            torch.set_num_threads(1)
+        else:
+            n_threads = torch.get_num_threads()
+            torch.set_num_threads(default_num_processes if default_num_processes < n_threads else n_threads)
         prediction = None
 
         for params in self.list_of_parameters:
@@ -500,7 +541,10 @@ class nnUNetPredictor(object):
             prediction /= len(self.list_of_parameters)
 
         if self.verbose: print('Prediction done')
-        torch.set_num_threads(n_threads)
+        if ExperimentState.mem_optimized:
+            torch.set_num_threads(1)
+        else:
+            torch.set_num_threads(n_threads)
         return prediction
 
     def _internal_get_sliding_window_slicers(self, image_size: Tuple[int, ...]):
@@ -540,7 +584,16 @@ class nnUNetPredictor(object):
     @torch.inference_mode()
     def _internal_maybe_mirror_and_predict(self, x: torch.Tensor) -> torch.Tensor:
         mirror_axes = self.allowed_mirroring_axes if self.use_mirroring else None
+        if mirror_axes != (2,):
+            warnings.warn(f'Your mirroring is not only in the left-right axis, it is {mirror_axes}.')
+        if ExperimentState.no_mirror_neither_leftright: 
+            warnings.warn(f'You are not using any mirroring for inference.')
+            mirror_axes = None
         prediction = self.network(x)
+        # torch.save(
+        #     prediction, 
+        #     "/home/sebquet/scratch/VisionResearchLab/HaN_Challenge/output/classes_not_combined_only36/raw_prediction.pt"
+        #     )
 
         if mirror_axes is not None:
             # check for invalid numbers in mirror_axes
@@ -551,7 +604,8 @@ class nnUNetPredictor(object):
             axes_combinations = [
                 c for i in range(len(mirror_axes)) for c in itertools.combinations(mirror_axes, i + 1)
             ]
-            for axes in axes_combinations:
+            for idx, axes in enumerate(axes_combinations):
+                # print("ax combination ", axes, "for index ", idx)
                 prediction += torch.flip(self.network(torch.flip(x, axes)), axes)
             prediction /= (len(axes_combinations) + 1)
         return prediction
@@ -651,6 +705,8 @@ class nnUNetPredictor(object):
             if self.verbose:
                 print(f'Input shape: {input_image.shape}')
                 print("step_size:", self.tile_step_size)
+                print("self.allowed_mirroring_axes : ", self.allowed_mirroring_axes)
+                print("self.use_mirroring : ", self.use_mirroring)
                 print("mirror_axes:", self.allowed_mirroring_axes if self.use_mirroring else None)
 
             # if input_image is smaller than tile_size we need to pad it to tile_size.
