@@ -12,6 +12,8 @@ from nnunetv2.utilities.find_class_by_name import recursive_find_python_class
 from nnunetv2.utilities.helpers import softmax_helper_dim0
 from nnunetv2.training.nnUNetTrainer.state import ExperimentState
 
+from nnunetv2.training.nnUNetTrainer.state import ExperimentState
+
 
 from typing import TYPE_CHECKING
 
@@ -143,12 +145,28 @@ class LabelManager(object):
 
             if isinstance(logits, np.ndarray):
                 logits = torch.from_numpy(logits)
+        if ExperimentState.mem_optimized:
+            print("mem_optimized on. We dont run the softmax operation")
+            try:
+                return torch.from_numpy(logits).cuda()
+            except RuntimeError as e:
+                print("We cannot allocate the tensor on the GPU to run the argmax operation. We will do it on CPU")
+                return torch.from_numpy(logits)
+        else:            
+
+            if isinstance(logits, np.ndarray):
+                logits = torch.from_numpy(logits)
 
             with torch.no_grad():
                 # softmax etc is not implemented for half
                 logits = logits.float()
                 probabilities = self.inference_nonlin(logits)
+            with torch.no_grad():
+                # softmax etc is not implemented for half
+                logits = logits.float()
+                probabilities = self.inference_nonlin(logits)
 
+            return probabilities
             return probabilities
 
     @torch.inference_mode()
@@ -181,6 +199,21 @@ class LabelManager(object):
                                            device=predicted_probabilities.device)
             for i, c in enumerate(self.regions_class_order):
                 segmentation[predicted_probabilities[i] > 0.5] = c
+        else:
+            if ExperimentState.mem_optimized:
+                print("memopt on. Performing sliced version of argmax")
+                # If you want to make sure it gives the same results 
+                # as the non-sliced version, you can uncomment the following lines
+                # previous_segmentation = predicted_probabilities.argmax(0)
+                segmentation = torch.zeros(predicted_probabilities.shape[1:], dtype=torch.int16,
+                    device="cpu")
+                step = 50
+                for i in torch.arange(0, segmentation.shape[-1], step):
+                    segmentation[:, :, i : i + step] = predicted_probabilities[:, :, :, i : i + step].argmax(0).cpu()
+                # assert torch.allclose(previous_segmentation.cpu(), segmentation.long())
+                segmentation = segmentation.long().cpu().numpy()
+            else:
+                segmentation = predicted_probabilities.argmax(0)
         else:
             if ExperimentState.mem_optimized:
                 print("memopt on. Performing sliced version of argmax")

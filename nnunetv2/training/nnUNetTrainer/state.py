@@ -32,6 +32,7 @@ class ExperimentState:
     def mem_optimized(cls):
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
         return os.environ.get("mem_optimized", False) not in [0, "0", "f", "F", "false", "False"]
 =======
         return os.environ.get("mem_optimized", True) not in [0, "0", "f", "F", "false", "False"]
@@ -39,6 +40,9 @@ class ExperimentState:
 =======
         return os.environ.get("mem_optimized", False) not in [0, "0", "f", "F", "false", "False"]
 >>>>>>> 92b1128 ( turning memopt by default to False since we only should use it for inference)
+=======
+        return os.environ.get("mem_optimized", False) not in [0, "0", "f", "F", "false", "False"]
+>>>>>>> 92b1128a664e63ad5525e4fa0ddd55c888e86e97
 
     @classmethod
     @property
@@ -57,6 +61,10 @@ if __name__ == "__main__":
     print(ExperimentState.mem_optimized)
     print(ExperimentState.__dict__)
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
 
 >>>>>>> 3eb5592 (environment variable manager for options of the training)
+=======
+
+>>>>>>> 92b1128a664e63ad5525e4fa0ddd55c888e86e97

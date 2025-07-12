@@ -53,6 +53,11 @@ from nnunetv2.training.data_augmentation.compute_initial_patch_size import get_p
 from nnunetv2.training.dataloading.nnunet_dataset import infer_dataset_class
 from nnunetv2.training.dataloading.data_loader import nnUNetDataLoader
 from nnunetv2.training.data_augmentation.custom_transforms.masking import DropoutTransformV2
+from nnunetv2.training.data_augmentation.custom_transforms.masking import DropoutTransformV2
+from nnunetv2.training.dataloading.data_loader_2d import nnUNetDataLoader2D
+from nnunetv2.training.dataloading.data_loader_3d import nnUNetDataLoader3D
+from nnunetv2.training.dataloading.nnunet_dataset import nnUNetDataset
+from nnunetv2.training.dataloading.utils import get_case_identifiers, unpack_dataset
 from nnunetv2.training.logging.nnunet_logger import nnUNetLogger
 from nnunetv2.training.loss.compound_losses import DC_and_CE_loss, DC_and_BCE_loss
 from nnunetv2.training.loss.deep_supervision import DeepSupervisionWrapper
@@ -66,6 +71,8 @@ from nnunetv2.utilities.get_network_from_plans import get_network_from_plans
 from nnunetv2.utilities.helpers import empty_cache, dummy_context
 from nnunetv2.utilities.label_handling.label_handling import convert_labelmap_to_one_hot, determine_num_input_channels
 from nnunetv2.utilities.plans_handling.plans_handler import PlansManager
+from nnunetv2.training.nnUNetTrainer.state import ExperimentState
+
 from nnunetv2.training.nnUNetTrainer.state import ExperimentState
 
 
@@ -223,6 +230,8 @@ class nnUNetTrainer(object):
                 self.network = torch.compile(self.network)
             else:
                 self.print_to_log_file('NOT COMPILING network...')
+            else:
+                self.print_to_log_file('NOT COMPILING network...')
 
             self.optimizer, self.lr_scheduler = self.configure_optimizers()
             # if ddp, wrap in DDP wrapper
@@ -266,6 +275,7 @@ class nnUNetTrainer(object):
             return False
 
         if 'nnUNet_compile' not in os.environ.keys():
+            return False
             return False
         else:
             return os.environ['nnUNet_compile'].lower() in ('true', '1', 't')
@@ -446,6 +456,9 @@ class nnUNetTrainer(object):
 
             # Manual forcing: only mirroring in left right direction
             mirror_axes = (1,)
+
+            # Manual forcing: only mirroring in left right direction
+            mirror_axes = (1,)
         elif dim == 3:
             # todo this is not ideal. We could also have patch_size (64, 16, 128) in which case a full 180deg 2d rot would be bad
             # order of the axes is determined by spacing, not image size
@@ -455,6 +468,8 @@ class nnUNetTrainer(object):
                 rotation_for_DA = (-180. / 360 * 2. * np.pi, 180. / 360 * 2. * np.pi)
             else:
                 rotation_for_DA = (-30. / 360 * 2. * np.pi, 30. / 360 * 2. * np.pi)
+            # Manual forcing: only mirroring in left right direction
+            mirror_axes = (2,)
             # Manual forcing: only mirroring in left right direction
             mirror_axes = (2,)
         else:
@@ -650,6 +665,10 @@ class nnUNetTrainer(object):
         if ExperimentState.no_mirror_neither_leftright:
             print("NO MIRRORING AT ALL")
             mirror_axes = None
+        
+        if ExperimentState.no_mirror_neither_leftright:
+            print("NO MIRRORING AT ALL")
+            mirror_axes = None
 
         # training pipeline
         tr_transforms = self.get_training_transforms(
@@ -796,6 +815,7 @@ class nnUNetTrainer(object):
         ))
         if mirror_axes is not None and len(mirror_axes) > 0:
             print(f"USING MIRRORING: {mirror_axes}")
+            print(f"USING MIRRORING: {mirror_axes}")
             transforms.append(
                 MirrorTransform(
                     allowed_axes=mirror_axes
@@ -810,6 +830,17 @@ class nnUNetTrainer(object):
                 channel_idx_in_seg=0,
                 set_outside_to=0,
             ))
+        
+        if ExperimentState.dropout_trans:
+            print("Warning: Dropout transform ON (line 747 in nnUNetTrainer)")
+            if ExperimentState.nnunet_std:
+                transforms.append(DropoutTransformV2(apply_to_channels=(0, 1)))
+            else:
+                transforms.append(DropoutTransformV2(
+                    apply_to_channels=(0, (1, 2)) # (MRI, (CT1, CT2))
+                ))
+        else:
+            print("Warning: Dropout transform OFF (line 747 in nnUNetTrainer)")
         
         if ExperimentState.dropout_trans:
             print("Warning: Dropout transform ON (line 747 in nnUNetTrainer)")
