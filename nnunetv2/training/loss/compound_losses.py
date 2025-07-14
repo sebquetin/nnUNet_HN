@@ -1,7 +1,6 @@
 import torch
 from nnunetv2.training.loss.dice import SoftDiceLoss, MemoryEfficientSoftDiceLoss
 from nnunetv2.training.loss.robust_ce_loss import RobustCrossEntropyLoss, TopKLoss
-from monai.losses.hausdorff_loss import HausdorffDTLoss
 from nnunetv2.utilities.helpers import softmax_helper_dim1
 from torch import nn
 
@@ -29,6 +28,7 @@ class DC_and_CE_Hauss_loss(nn.Module):
 
         self.ce = RobustCrossEntropyLoss(**ce_kwargs)
         self.dc = dice_class(apply_nonlin=softmax_helper_dim1, **soft_dice_kwargs)
+        from monai.losses.hausdorff_loss import HausdorffDTLoss
         self.hauss = HausdorffDTLoss(other_act=softmax_helper_dim1, to_onehot_y=True)
         print(f"Using Monai Haus with a weight of {hauss_weight} on the loss. It applies softmax.")
         self.hauss_weight = hauss_weight
