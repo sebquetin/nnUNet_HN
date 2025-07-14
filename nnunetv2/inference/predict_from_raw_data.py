@@ -667,8 +667,6 @@ class nnUNetPredictor(object):
             ]
             for idx, axes in enumerate(axes_combinations):
                 # print("ax combination ", axes, "for index ", idx)
-            for idx, axes in enumerate(axes_combinations):
-                # print("ax combination ", axes, "for index ", idx)
                 prediction += torch.flip(self.network(torch.flip(x, axes)), axes)
             prediction /= (len(axes_combinations) + 1)
         return prediction
