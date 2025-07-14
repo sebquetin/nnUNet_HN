@@ -436,8 +436,6 @@ class nnUNetPredictor(object):
                                  output_file_truncated: str = None,
                                  save_or_return_probabilities: bool = False,
                                  return_times: bool = False):
-                                 save_or_return_probabilities: bool = False,
-                                 return_times: bool = False):
         """
         WARNING: SLOW. ONLY USE THIS IF YOU CANNOT GIVE NNUNET MULTIPLE IMAGES AT ONCE FOR SOME REASON.
 
