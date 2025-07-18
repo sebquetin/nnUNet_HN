@@ -12,9 +12,6 @@ from nnunetv2.utilities.find_class_by_name import recursive_find_python_class
 from nnunetv2.utilities.helpers import softmax_helper_dim0
 from nnunetv2.training.nnUNetTrainer.state import ExperimentState
 
-from nnunetv2.training.nnUNetTrainer.state import ExperimentState
-
-
 from typing import TYPE_CHECKING
 
 # see https://adamj.eu/tech/2021/05/13/python-type-hints-how-to-fix-circular-imports/
@@ -145,22 +142,7 @@ class LabelManager(object):
 
             if isinstance(logits, np.ndarray):
                 logits = torch.from_numpy(logits)
-        if ExperimentState.mem_optimized:
-            print("mem_optimized on. We dont run the softmax operation")
-            try:
-                return torch.from_numpy(logits).cuda()
-            except RuntimeError as e:
-                print("We cannot allocate the tensor on the GPU to run the argmax operation. We will do it on CPU")
-                return torch.from_numpy(logits)
-        else:            
 
-            if isinstance(logits, np.ndarray):
-                logits = torch.from_numpy(logits)
-
-            with torch.no_grad():
-                # softmax etc is not implemented for half
-                logits = logits.float()
-                probabilities = self.inference_nonlin(logits)
             with torch.no_grad():
                 # softmax etc is not implemented for half
                 logits = logits.float()

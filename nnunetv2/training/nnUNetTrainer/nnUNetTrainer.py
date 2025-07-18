@@ -68,8 +68,6 @@ from nnunetv2.utilities.label_handling.label_handling import convert_labelmap_to
 from nnunetv2.utilities.plans_handling.plans_handler import PlansManager
 from nnunetv2.training.nnUNetTrainer.state import ExperimentState
 
-from nnunetv2.training.nnUNetTrainer.state import ExperimentState
-
 
 
 class nnUNetTrainer(object):
@@ -269,7 +267,6 @@ class nnUNetTrainer(object):
 
         if 'nnUNet_compile' not in os.environ.keys():
             return False
-            return False
         else:
             return os.environ['nnUNet_compile'].lower() in ('true', '1', 't')
 
@@ -449,9 +446,6 @@ class nnUNetTrainer(object):
 
             # Manual forcing: only mirroring in left right direction
             mirror_axes = (1,)
-
-            # Manual forcing: only mirroring in left right direction
-            mirror_axes = (1,)
         elif dim == 3:
             # todo this is not ideal. We could also have patch_size (64, 16, 128) in which case a full 180deg 2d rot would be bad
             # order of the axes is determined by spacing, not image size
@@ -461,8 +455,6 @@ class nnUNetTrainer(object):
                 rotation_for_DA = (-180. / 360 * 2. * np.pi, 180. / 360 * 2. * np.pi)
             else:
                 rotation_for_DA = (-30. / 360 * 2. * np.pi, 30. / 360 * 2. * np.pi)
-            # Manual forcing: only mirroring in left right direction
-            mirror_axes = (2,)
             # Manual forcing: only mirroring in left right direction
             mirror_axes = (2,)
         else:
@@ -658,10 +650,6 @@ class nnUNetTrainer(object):
         if ExperimentState.no_mirror_neither_leftright:
             print("NO MIRRORING AT ALL")
             mirror_axes = None
-        
-        if ExperimentState.no_mirror_neither_leftright:
-            print("NO MIRRORING AT ALL")
-            mirror_axes = None
 
         # training pipeline
         tr_transforms = self.get_training_transforms(
@@ -698,9 +686,12 @@ class nnUNetTrainer(object):
 
         allowed_num_processes = get_allowed_n_proc_DA()
         if allowed_num_processes == 0:
+            print("WARNINGSEB: allowed_num_processes is 0. This means that no threads will be used for data augmentation. ")
             mt_gen_train = SingleThreadedAugmenter(dl_tr, None)
             mt_gen_val = SingleThreadedAugmenter(dl_val, None)
         else:
+            print(f"WARNINGSEB: allowed_num_processes is greater than 0. You set {allowed_num_processes} threads to be used for data augmentation. ")
+
             mt_gen_train = NonDetMultiThreadedAugmenter(data_loader=dl_tr, transform=None,
                                                         num_processes=allowed_num_processes,
                                                         num_cached=max(6, allowed_num_processes // 2), seeds=None,
@@ -808,7 +799,6 @@ class nnUNetTrainer(object):
         ))
         if mirror_axes is not None and len(mirror_axes) > 0:
             print(f"USING MIRRORING: {mirror_axes}")
-            print(f"USING MIRRORING: {mirror_axes}")
             transforms.append(
                 MirrorTransform(
                     allowed_axes=mirror_axes
@@ -823,18 +813,7 @@ class nnUNetTrainer(object):
                 channel_idx_in_seg=0,
                 set_outside_to=0,
             ))
-        
-        if ExperimentState.dropout_trans:
-            print("Warning: Dropout transform ON (line 747 in nnUNetTrainer)")
-            if ExperimentState.nnunet_std:
-                transforms.append(DropoutTransformV2(apply_to_channels=(0, 1)))
-            else:
-                transforms.append(DropoutTransformV2(
-                    apply_to_channels=(0, (1, 2)) # (MRI, (CT1, CT2))
-                ))
-        else:
-            print("Warning: Dropout transform OFF (line 747 in nnUNetTrainer)")
-        
+                
         if ExperimentState.dropout_trans:
             print("Warning: Dropout transform ON (line 747 in nnUNetTrainer)")
             if ExperimentState.nnunet_std:

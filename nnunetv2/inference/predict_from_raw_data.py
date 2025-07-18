@@ -44,9 +44,6 @@ from nnunetv2.utilities.utils import create_lists_from_splitted_dataset_folder
 
 from nnunetv2.training.nnUNetTrainer.state import ExperimentState
 
-from nnunetv2.training.nnUNetTrainer.state import ExperimentState
-
-
 class nnUNetPredictor(object):
     def __init__(self,
                  tile_step_size: float = 0.5,
@@ -488,22 +485,6 @@ class nnUNetPredictor(object):
         #         "/home/sebquet/scratch/VisionResearchLab/HaN_Challenge/output/classes_not_combined_only36/predicted_logits.pt"
         #         )
 
-        # time for inference
-        t1_inference = time.time()
-
-        if ExperimentState.mem_optimized:
-            del dct['data'], ppa, input_image
-            torch.cuda.empty_cache()
-            gc.collect()
-
-            # for obj in gc.get_objects():
-            #     try:
-            #         if torch.is_tensor(obj) or (hasattr(obj, 'data') and torch.is_tensor(obj.data)):
-            #             print(type(obj), obj.size())
-            #     except:
-            #         pass
-            # print(torch.cuda.memory_summary())
-
         if self.verbose:
             print('resampling to original shape')
         if output_file_truncated is not None:
@@ -517,20 +498,6 @@ class nnUNetPredictor(object):
                                                                               dct['data_properties'],
                                                                               return_probabilities=
                                                                               save_or_return_probabilities)
-            
-            # time for resampling
-            t1_resampling = time.time()
-
-            if return_times:
-                if save_or_return_probabilities:
-                    return ret[0], ret[1], t1_inference, t1_resampling
-                else:
-                    return ret, t1_inference, t1_resampling
-            else:
-                if save_or_return_probabilities:
-                    return ret[0], ret[1]
-                else:
-                    return ret
             
             # time for resampling
             t1_resampling = time.time()
@@ -561,12 +528,6 @@ class nnUNetPredictor(object):
         else:
             n_threads = torch.get_num_threads()
             torch.set_num_threads(default_num_processes if default_num_processes < n_threads else n_threads)
-        if ExperimentState.mem_optimized:
-            print("mem opt on. Setting torch num threads to 1")
-            torch.set_num_threads(1)
-        else:
-            n_threads = torch.get_num_threads()
-            torch.set_num_threads(default_num_processes if default_num_processes < n_threads else n_threads)
         prediction = None
 
         for params in self.list_of_parameters:
@@ -589,10 +550,6 @@ class nnUNetPredictor(object):
             prediction /= len(self.list_of_parameters)
 
         if self.verbose: print('Prediction done')
-        if ExperimentState.mem_optimized:
-            torch.set_num_threads(1)
-        else:
-            torch.set_num_threads(n_threads)
         if ExperimentState.mem_optimized:
             torch.set_num_threads(1)
         else:
@@ -636,11 +593,6 @@ class nnUNetPredictor(object):
     @torch.inference_mode()
     def _internal_maybe_mirror_and_predict(self, x: torch.Tensor) -> torch.Tensor:
         mirror_axes = self.allowed_mirroring_axes if self.use_mirroring else None
-        if mirror_axes != (2,):
-            warnings.warn(f'Your mirroring is not only in the left-right axis, it is {mirror_axes}.')
-        if ExperimentState.no_mirror_neither_leftright: 
-            warnings.warn(f'You are not using any mirroring for inference.')
-            mirror_axes = None
         if mirror_axes != (2,):
             warnings.warn(f'Your mirroring is not only in the left-right axis, it is {mirror_axes}.')
         if ExperimentState.no_mirror_neither_leftright: 
