@@ -168,6 +168,35 @@ class RescaleTo01Normalization(ImageNormalization):
         image -= image.min()
         image /= np.clip(image.max(), a_min=1e-8, a_max=None)
         return image
+    
+
+class PETNormalization(ImageNormalization):
+    leaves_pixels_outside_mask_at_zero_if_use_mask_for_norm_is_true = False
+
+    def run(self, image: np.ndarray, seg: np.ndarray = None) -> np.ndarray:
+        print("PET normalization")
+        lower_bound = 0.0 # Not self.intensityproperties['percentile_00_5'] which is 0.81
+        upper_bound = 10.0 # Hard coding instead of self.intensityproperties['percentile_99_5']
+
+        image = image.astype(self.target_dtype, copy=False)
+        np.clip(image, lower_bound, upper_bound, out=image)
+
+        mean = image.mean()
+        std = image.std()
+        image -= mean
+        image /= (max(std, 1e-8))
+
+        return image
+    
+
+class MinMaxNormalization(ImageNormalization):
+    leaves_pixels_outside_mask_at_zero_if_use_mask_for_norm_is_true = False
+
+    def run(self, image: np.ndarray, seg: np.ndarray = None) -> np.ndarray:
+        image = image.astype(self.target_dtype, copy=False)
+        image -= image.min()
+        image /= np.clip(image.max() - image.min(), a_min=1e-8, a_max=None)
+        return image
 
 
 class RGBTo01Normalization(ImageNormalization):
