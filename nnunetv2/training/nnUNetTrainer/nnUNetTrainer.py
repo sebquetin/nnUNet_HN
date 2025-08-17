@@ -443,7 +443,7 @@ class nnUNetTrainer(object):
                 rotation_for_DA = (-180. / 360 * 2. * np.pi, 180. / 360 * 2. * np.pi)
 
             # Manual forcing: only mirroring in left right direction
-            mirror_axes = (1,)
+            mirror_axes = (0, 1)
         elif dim == 3:
             # todo this is not ideal. We could also have patch_size (64, 16, 128) in which case a full 180deg 2d rot would be bad
             # order of the axes is determined by spacing, not image size
@@ -454,7 +454,7 @@ class nnUNetTrainer(object):
             else:
                 rotation_for_DA = (-30. / 360 * 2. * np.pi, 30. / 360 * 2. * np.pi)
             # Manual forcing: only mirroring in left right direction
-            mirror_axes = (2,)
+            mirror_axes = (0, 1, 2)
         else:
             raise RuntimeError()
 
@@ -733,8 +733,8 @@ class nnUNetTrainer(object):
         transforms.append(
             SpatialTransform(
                 patch_size_spatial, patch_center_dist_from_border=0, random_crop=False, p_elastic_deform=0,
-                p_rotation=0.2,
-                rotation=rotation_for_DA, p_scaling=0.2, scaling=(0.7, 1.4), p_synchronize_scaling_across_axes=1,
+                p_rotation=0.5,
+                rotation=rotation_for_DA, p_scaling=0.5, scaling=(0.7, 1.4), p_synchronize_scaling_across_axes=1,
                 bg_style_seg_sampling=False  # , mode_seg='nearest'
             )
         )
@@ -742,12 +742,21 @@ class nnUNetTrainer(object):
         if do_dummy_2d_data_aug:
             transforms.append(Convert2DTo3DTransform())
 
+        # For CT
         transforms.append(RandomTransform(
             GaussianNoiseTransform(
                 noise_variance=(0, 0.1),
-                p_per_channel=1,
+                p_per_channel=torch.tensor([1., 0.]),
                 synchronize_channels=True
-            ), apply_probability=0.1
+            ), apply_probability=0.25
+        ))
+        # For PET
+        transforms.append(RandomTransform(
+            GaussianNoiseTransform(
+                noise_variance=(0, 0.1),
+                p_per_channel=torch.tensor([0., 1.]),
+                synchronize_channels=True
+            ), apply_probability=0.50
         ))
         transforms.append(RandomTransform(
             GaussianBlurTransform(
@@ -757,20 +766,41 @@ class nnUNetTrainer(object):
                 p_per_channel=0.5, benchmark=True
             ), apply_probability=0.2
         ))
+
+        # For CT
         transforms.append(RandomTransform(
             MultiplicativeBrightnessTransform(
                 multiplier_range=BGContrast((0.75, 1.25)),
                 synchronize_channels=False,
-                p_per_channel=1
-            ), apply_probability=0.15
+                p_per_channel=torch.tensor([1., 0.])
+            ), apply_probability=0.75
         ))
+        # For PET
+        transforms.append(RandomTransform(
+            MultiplicativeBrightnessTransform(
+                multiplier_range=BGContrast((0.6, 1.4)),
+                synchronize_channels=False,
+                p_per_channel=torch.tensor([0., 1.])
+            ), apply_probability=0.75
+        ))
+      
+        # For CT
         transforms.append(RandomTransform(
             ContrastTransform(
                 contrast_range=BGContrast((0.75, 1.25)),
                 preserve_range=True,
                 synchronize_channels=False,
-                p_per_channel=1
-            ), apply_probability=0.15
+                p_per_channel=torch.tensor([1., 0.])
+            ), apply_probability=0.75
+        ))
+        # For PET
+        transforms.append(RandomTransform(
+            ContrastTransform(
+                contrast_range=BGContrast((0.6, 1.4)),
+                preserve_range=True,
+                synchronize_channels=False,
+                p_per_channel=torch.tensor([0., 1.])
+            ), apply_probability=0.75
         ))
         transforms.append(RandomTransform(
             SimulateLowResolutionTransform(
@@ -785,21 +815,73 @@ class nnUNetTrainer(object):
         transforms.append(RandomTransform(
             GammaTransform(
                 gamma=BGContrast((0.7, 1.5)),
-                p_invert_image=1,
-                synchronize_channels=False,
-                p_per_channel=1,
-                p_retain_stats=1
-            ), apply_probability=0.1
-        ))
-        transforms.append(RandomTransform(
-            GammaTransform(
-                gamma=BGContrast((0.7, 1.5)),
                 p_invert_image=0,
                 synchronize_channels=False,
                 p_per_channel=1,
                 p_retain_stats=1
             ), apply_probability=0.3
         ))
+
+        # #################################### Original code
+        # transforms.append(RandomTransform(
+        #     GaussianNoiseTransform(
+        #         noise_variance=(0, 0.1),
+        #         p_per_channel=1,
+        #         synchronize_channels=True
+        #     ), apply_probability=0.1
+        # ))
+        # transforms.append(RandomTransform(
+        #     GaussianBlurTransform(
+        #         blur_sigma=(0.5, 1.),
+        #         synchronize_channels=False,
+        #         synchronize_axes=False,
+        #         p_per_channel=0.5, benchmark=True
+        #     ), apply_probability=0.2
+        # ))
+        # transforms.append(RandomTransform(
+        #     MultiplicativeBrightnessTransform(
+        #         multiplier_range=BGContrast((0.75, 1.25)),
+        #         synchronize_channels=False,
+        #         p_per_channel=1
+        #     ), apply_probability=0.15
+        # ))
+        # transforms.append(RandomTransform(
+        #     ContrastTransform(
+        #         contrast_range=BGContrast((0.75, 1.25)),
+        #         preserve_range=True,
+        #         synchronize_channels=False,
+        #         p_per_channel=1
+        #     ), apply_probability=0.15
+        # ))
+        # transforms.append(RandomTransform(
+        #     SimulateLowResolutionTransform(
+        #         scale=(0.5, 1),
+        #         synchronize_channels=False,
+        #         synchronize_axes=True,
+        #         ignore_axes=ignore_axes,
+        #         allowed_channels=None,
+        #         p_per_channel=0.5
+        #     ), apply_probability=0.25
+        # ))
+        # transforms.append(RandomTransform(
+        #     GammaTransform(
+        #         gamma=BGContrast((0.7, 1.5)),
+        #         p_invert_image=1,
+        #         synchronize_channels=False,
+        #         p_per_channel=1,
+        #         p_retain_stats=1
+        #     ), apply_probability=0.1
+        # ))
+        # transforms.append(RandomTransform(
+        #     GammaTransform(
+        #         gamma=BGContrast((0.7, 1.5)),
+        #         p_invert_image=0,
+        #         synchronize_channels=False,
+        #         p_per_channel=1,
+        #         p_retain_stats=1
+        #     ), apply_probability=0.3
+        # ))
+
         if mirror_axes is not None and len(mirror_axes) > 0:
             print(f"USING MIRRORING: {mirror_axes}")
             transforms.append(
