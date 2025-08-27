@@ -114,6 +114,99 @@ class CTNormalization(ImageNormalization):
         return image
 
 
+
+
+class CTNormalizationCustomClip0_20(ImageNormalization):
+    leaves_pixels_outside_mask_at_zero_if_use_mask_for_norm_is_true = False
+
+    def run(self, image: np.ndarray, seg: np.ndarray = None, lower_bound:float = 0., upper_bound:float = 20.) -> np.ndarray:
+        assert self.intensityproperties is not None, "CTNormalization requires intensity properties"
+        print(f"nnunet std for  with custom clipping between {lower_bound} and {upper_bound}")
+        mean_intensity = self.intensityproperties['mean']
+        std_intensity = self.intensityproperties['std']
+        lower_bound = lower_bound # self.intensityproperties['percentile_00_5']
+        upper_bound = upper_bound # self.intensityproperties['percentile_99_5']
+
+        image = image.astype(self.target_dtype, copy=False)
+        np.clip(image, lower_bound, upper_bound, out=image)
+        image -= mean_intensity
+        image /= max(std_intensity, 1e-8)
+        return image
+    
+
+class CTNormalizationCustomClip0_15(ImageNormalization):
+    leaves_pixels_outside_mask_at_zero_if_use_mask_for_norm_is_true = False
+
+    def run(self, image: np.ndarray, seg: np.ndarray = None, lower_bound:float = 0., upper_bound:float = 15.) -> np.ndarray:
+        assert self.intensityproperties is not None, "CTNormalization requires intensity properties"
+        print(f"nnunet std for  with custom clipping between {lower_bound} and {upper_bound}")
+        mean_intensity = self.intensityproperties['mean']
+        std_intensity = self.intensityproperties['std']
+        lower_bound = lower_bound # self.intensityproperties['percentile_00_5']
+        upper_bound = upper_bound # self.intensityproperties['percentile_99_5']
+
+        image = image.astype(self.target_dtype, copy=False)
+        np.clip(image, lower_bound, upper_bound, out=image)
+        image -= mean_intensity
+        image /= max(std_intensity, 1e-8)
+        return image
+
+
+class CTNormalizationCustomClip0_10(ImageNormalization):
+    leaves_pixels_outside_mask_at_zero_if_use_mask_for_norm_is_true = False
+
+    def run(self, image: np.ndarray, seg: np.ndarray = None, lower_bound:float = 0., upper_bound:float = 10.) -> np.ndarray:
+        assert self.intensityproperties is not None, "CTNormalization requires intensity properties"
+        print(f"nnunet std for  with custom clipping between {lower_bound} and {upper_bound}")
+        mean_intensity = self.intensityproperties['mean']
+        std_intensity = self.intensityproperties['std']
+        lower_bound = lower_bound # self.intensityproperties['percentile_00_5']
+        upper_bound = upper_bound # self.intensityproperties['percentile_99_5']
+
+        image = image.astype(self.target_dtype, copy=False)
+        np.clip(image, lower_bound, upper_bound, out=image)
+        image -= mean_intensity
+        image /= max(std_intensity, 1e-8)
+        return image
+
+
+class CTNormalizationCustomClip0_8(ImageNormalization):
+    leaves_pixels_outside_mask_at_zero_if_use_mask_for_norm_is_true = False
+
+    def run(self, image: np.ndarray, seg: np.ndarray = None, lower_bound:float = 0., upper_bound:float = 8.) -> np.ndarray:
+        assert self.intensityproperties is not None, "CTNormalization requires intensity properties"
+        print(f"nnunet std for  with custom clipping between {lower_bound} and {upper_bound}")
+        mean_intensity = self.intensityproperties['mean']
+        std_intensity = self.intensityproperties['std']
+        lower_bound = lower_bound # self.intensityproperties['percentile_00_5']
+        upper_bound = upper_bound # self.intensityproperties['percentile_99_5']
+
+        image = image.astype(self.target_dtype, copy=False)
+        np.clip(image, lower_bound, upper_bound, out=image)
+        image -= mean_intensity
+        image /= max(std_intensity, 1e-8)
+        return image
+    
+
+class CTNormalizationCustomClip0_5(ImageNormalization):
+    leaves_pixels_outside_mask_at_zero_if_use_mask_for_norm_is_true = False
+
+    def run(self, image: np.ndarray, seg: np.ndarray = None, lower_bound:float = 0., upper_bound:float = 5.) -> np.ndarray:
+        assert self.intensityproperties is not None, "CTNormalization requires intensity properties"
+        print(f"nnunet std for  with custom clipping between {lower_bound} and {upper_bound}")
+        mean_intensity = self.intensityproperties['mean']
+        std_intensity = self.intensityproperties['std']
+        lower_bound = lower_bound # self.intensityproperties['percentile_00_5']
+        upper_bound = upper_bound # self.intensityproperties['percentile_99_5']
+
+        image = image.astype(self.target_dtype, copy=False)
+        np.clip(image, lower_bound, upper_bound, out=image)
+        image -= mean_intensity
+        image /= max(std_intensity, 1e-8)
+        return image
+    
+
+
 class CTBoneNormalization(ImageNormalization):
     leaves_pixels_outside_mask_at_zero_if_use_mask_for_norm_is_true = False
 
@@ -187,7 +280,90 @@ class PETNormalization(ImageNormalization):
         image /= (max(std, 1e-8))
 
         return image
+
+
+class CTNormalizationSigmoid(ImageNormalization):
+    leaves_pixels_outside_mask_at_zero_if_use_mask_for_norm_is_true = False
+
+    def run(self, image: np.ndarray, seg: np.ndarray = None) -> np.ndarray:
+        assert self.intensityproperties is not None, "CTNormalization requires intensity properties"
+        print("CT norm followed by sigmoid")
+        mean_intensity = self.intensityproperties['mean']
+        std_intensity = self.intensityproperties['std']
+
+        image = image.astype(self.target_dtype, copy=False)
+        image -= mean_intensity
+        image /= max(std_intensity, 1e-8)
+
+        # Instead of clipping, we apply a sigmoid function to the image
+        image = 1 / (1 + np.exp(-image))
+
+        # Recentering back around 0
+        image -= 0.5
+        return image
     
+class ZScoreNormalizationSigmoid(ImageNormalization):
+    leaves_pixels_outside_mask_at_zero_if_use_mask_for_norm_is_true = False
+
+    def run(self, image: np.ndarray, seg: np.ndarray = None) -> np.ndarray:
+        assert self.intensityproperties is not None, "CTNormalization requires intensity properties"
+        print("Zscore norm followed by sigmoid")
+
+        image = image.astype(self.target_dtype, copy=False)
+
+        mean = image.mean()
+        std = image.std()
+        image -= mean
+        image /= (max(std, 1e-8))
+        
+        # Instead of clipping, we apply a sigmoid function to the image
+        image = 1 / (1 + np.exp(-image))
+
+        # Recentering back around 0
+        image -= 0.5
+        return image
+
+
+# Foreground PET SUVs GTVp: 8.57 +/- 4.69 [0.17, 44.04] median 7.60, percentiles: 0.5\% 1.47 90\% 14.60 95\% 17.31 99\% 23.98 99.5\% 26.67
+# Foreground PET SUVs GTVn: 5.54 +/- 3.77 [-0.37, 35.79] median 4.58, percentiles: 0.5\% 0.59 90\% 10.75 95\% 13.04 99\% 17.57 99.5\% 19.24
+# Foreground PET SUVs: 6.90 +/- 4.47 [-0.37, 44.04] median 5.91, percentiles: 0.5\% 0.74 90\% 12.86 95\% 15.33 99\% 21.21 99.5\% 23.81
+# Foreground CT HUs: 37.72 +/- 47.02 [-1287.00, 3070.00] median 42.00, percentiles: 0.5\% -112.00 90\% 63.00 95\% 72.00 99\% 117.00 99.5\% 156.00
+
+
+class PETNormalizationGTVp(ImageNormalization):
+    leaves_pixels_outside_mask_at_zero_if_use_mask_for_norm_is_true = False
+
+    def run(self, image: np.ndarray, seg: np.ndarray = None) -> np.ndarray:
+        print("PET GTVp normalization")
+        # WE got the values from the explore_intensities.py script
+        mean_intensity = 8.57 # Hard coding instead of self.intensityproperties['mean']
+        std_intensity = 4.69 # Hard coding instead of self.intensityproperties['std']
+        lower_bound = 1.47 # Hard coding instead of self.intensityproperties['percentile_00_5'] which is 0.81
+        upper_bound = 26.67 # Hard coding instead of self.intensityproperties['percentile_99_5']
+
+        image = image.astype(self.target_dtype, copy=False)
+        np.clip(image, lower_bound, upper_bound, out=image)
+        image -= mean_intensity
+        image /= max(std_intensity, 1e-8)
+        return image
+    
+
+class PETNormalizationGTVn(ImageNormalization):
+    leaves_pixels_outside_mask_at_zero_if_use_mask_for_norm_is_true = False
+
+    def run(self, image: np.ndarray, seg: np.ndarray = None) -> np.ndarray:
+        print("PET GTVn normalization")
+        # WE got the values from the explore_intensities.py script
+        mean_intensity = 5.54 # Hard coding instead of self.intensityproperties['mean']
+        std_intensity = 3.77 # Hard coding instead of self.intensityproperties['std']
+        lower_bound = 0.59 # Hard coding instead of self.intensityproperties['percentile_00_5'] which is 0.81
+        upper_bound = 19.24 # Hard coding instead of self.intensityproperties['percentile_99_5']
+
+        image = image.astype(self.target_dtype, copy=False)
+        np.clip(image, lower_bound, upper_bound, out=image)
+        image -= mean_intensity
+        image /= max(std_intensity, 1e-8)
+        return image
 
 class MinMaxNormalization(ImageNormalization):
     leaves_pixels_outside_mask_at_zero_if_use_mask_for_norm_is_true = False
